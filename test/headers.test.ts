@@ -2,8 +2,8 @@ import { test, expect } from "bun:test"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { KIMI_CLI_VERSION, USER_AGENT } from "../src/constants.ts"
-import { asciiHeaderValue, getDeviceId, kimiDeviceModel, kimiHeaders } from "../src/headers.ts"
+import { KIMI_CLI_VERSION, USER_AGENT } from "../src/core/constants.ts"
+import { asciiHeaderValue, getDeviceId, kimiDeviceModel, kimiHeaders } from "../src/core/headers.ts"
 
 // Note: getDeviceId() reads/writes ~/.kimi/device_id. That file is shared
 // with kimi-cli on purpose (AGENTS.md rule 2) and the function is
@@ -81,6 +81,20 @@ test("kimiDeviceModel mirrors kimi-cli Darwin and Windows special cases", () => 
   )
   expect(kimiDeviceModel({ system: "Windows_NT", release: "10.0.26100", machine: "x64" })).toBe("Windows 11 x64")
   expect(kimiDeviceModel({ system: "Windows_NT", release: "10.0.19045", machine: "x64" })).toBe("Windows 10 x64")
+  expect(kimiDeviceModel({ system: "Linux", release: "6.8.0", machine: "x86_64" })).toBe("Linux 6.8.0 x86_64")
+})
+
+// P1: kimi-cli uses Python's platform.machine(), which returns "AMD64" on
+// win32 x86_64 — NOT "x86_64" (what Node os.machine() yields). The official
+// client sends "AMD64"; matching it avoids a device-model fingerprint mismatch.
+test("P1: win32 x86_64 device-model arch is AMD64 (matching platform.machine())", () => {
+  expect(kimiDeviceModel({ system: "Windows_NT", release: "10.0.22631", machine: "x86_64" })).toBe(
+    "Windows 11 AMD64",
+  )
+  expect(kimiDeviceModel({ system: "Windows_NT", release: "10.0.19045", machine: "x86_64" })).toBe(
+    "Windows 10 AMD64",
+  )
+  // Linux/Darwin keep os.machine() unchanged.
   expect(kimiDeviceModel({ system: "Linux", release: "6.8.0", machine: "x86_64" })).toBe("Linux 6.8.0 x86_64")
 })
 

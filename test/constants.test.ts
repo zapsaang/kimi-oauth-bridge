@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import * as C from "../src/constants.ts"
+import * as C from "../src/core/constants.ts"
 
 // These values form the "identity" of the plugin on the wire. Typos silently
 // send requests down the wrong auth / backend path or collide with models.dev
@@ -29,7 +29,7 @@ test("OAuth constants match upstream kimi-cli exactly", () => {
 })
 
 test("PROVIDER_ID does not collide with models.dev (AGENTS.md rule 8)", () => {
-  expect(C.PROVIDER_ID).toBe("kimi-for-coding-oauth")
+  expect(C.PROVIDER_ID).toBe("kimi-oauth-bridge")
   expect(C.PROVIDER_ID).not.toBe("kimi-for-coding")
 })
 
@@ -41,4 +41,26 @@ test("REFRESH_SAFETY_WINDOW_MS is positive and well below token TTL", () => {
   // Token TTLs are ~15 min; anything bigger would mean we refresh on every call.
   expect(C.REFRESH_SAFETY_WINDOW_MS).toBeGreaterThan(0)
   expect(C.REFRESH_SAFETY_WINDOW_MS).toBeLessThan(5 * 60_000)
+})
+
+// P2: KIMI_CLI_VERSION tracks the live kimi-cli release. Stale versions risk
+// entitlement/fingerprint rejection from Moonshot's backend.
+test("P2: KIMI_CLI_VERSION is bumped to at least 1.49.0 (tracks live client)", () => {
+  const [major, minor] = C.KIMI_CLI_VERSION.split(".").map(Number)
+  expect(major).toBeGreaterThanOrEqual(1)
+  if (major === 1) {
+    expect(minor).toBeGreaterThanOrEqual(49)
+  }
+})
+
+// B8: core must stay host-neutral — ZERO OpenClaw-only projection constants
+// (like maxTokens) may live in core/constants.ts. maxTokens is DERIVED per-model
+// from the discovered context length inside the OpenClaw adapter (official-client
+// convention), so no constant exists anywhere. This guard prevents a future
+// regression where an OpenClaw concern leaks back into core.
+test("B8: core constants contain no OpenClaw-only projection (maxTokens) constant", () => {
+  expect("KIMI_DEFAULT_MAX_TOKENS" in C).toBe(false)
+  expect("KIMI_FALLBACK_MAX_TOKENS" in C).toBe(false)
+  // maxTokens must NOT be exported from core.
+  expect(Object.keys(C).some((k) => k.toLowerCase().includes("maxtoken"))).toBe(false)
 })

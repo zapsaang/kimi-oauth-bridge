@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { parseUsagePayload } from "../src/usage.ts"
+import { parseUsagePayload } from "../src/core/usage.ts"
 
 test("parseUsagePayload maps summary and rolling limits", () => {
   const rows = parseUsagePayload({

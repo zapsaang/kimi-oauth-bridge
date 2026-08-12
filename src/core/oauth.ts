@@ -7,6 +7,7 @@ import {
   OAUTH_TOKEN_URL,
 } from "./constants.ts"
 import { kimiHeaders } from "./headers.ts"
+import { isSafeEffortString, isSafeModelId, sanitizeEfforts } from "./validation.ts"
 
 export type DeviceAuth = {
   device_code: string
@@ -46,6 +47,8 @@ async function postForm<T>(url: string, params: Record<string, string>): Promise
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
   const text = await res.text()
+  // Pre-existing explicit any tolerated by the refactor contract; no NEW any
+  // is introduced anywhere else.
   let json: any
   try {
     json = text ? JSON.parse(text) : {}
@@ -180,9 +183,88 @@ export type KimiModelInfo = {
   id: string
   display_name?: string
   context_length?: number
+  protocol?: string
   supports_reasoning?: boolean
+  supports_tool_use?: boolean
   supports_image_in?: boolean
   supports_video_in?: boolean
+  supports_thinking_type?: "only" | "no" | "both"
+  think_efforts?: {
+    support: boolean
+    valid_efforts?: string[]
+    default_effort?: string
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function optionalString(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+  return typeof value === "string" ? value : undefined
+}
+
+function optionalBoolean(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+  return typeof value === "boolean" ? value : undefined
+}
+
+function parseThinkingType(value: unknown): KimiModelInfo["supports_thinking_type"] {
+  // Fail-closed: an unknown thinking type yields undefined (treated as no
+  // thinking support downstream), never a guessed value.
+  if (value === "only" || value === "no" || value === "both") return value
+  return undefined
+}
+
+function parseThinkEfforts(value: unknown): KimiModelInfo["think_efforts"] {
+  if (!isRecord(value) || typeof value.support !== "boolean") return undefined
+
+  // S3: sanitize valid_efforts (dedupe + drop unsafe/proto keys) and keep
+  // default_effort ONLY when it survives as a safe string present in the
+  // sanitized list.
+  const validEfforts = sanitizeEfforts(value.valid_efforts)
+  const rawDefault = value.default_effort
+  const safeDefault =
+    typeof rawDefault === "string" && isSafeEffortString(rawDefault) ? rawDefault : undefined
+  const keptDefault =
+    safeDefault !== undefined && validEfforts.includes(safeDefault) ? safeDefault : undefined
+
+  return {
+    support: value.support,
+    ...(validEfforts.length > 0 ? { valid_efforts: validEfforts } : {}),
+    ...(keptDefault ? { default_effort: keptDefault } : {}),
+  }
+}
+
+function parseModelInfo(value: unknown): KimiModelInfo | undefined {
+  if (!isRecord(value)) return undefined
+  const id = optionalString(value, "id")
+  // S3: reject unsafe ids (proto-polluting / control chars) before they are
+  // ever keyed into a catalog or config map.
+  if (!id || !isSafeModelId(id)) return undefined
+
+  const displayName = optionalString(value, "display_name")
+  const contextLength = value.context_length
+  const protocol = optionalString(value, "protocol")
+  const supportsReasoning = optionalBoolean(value, "supports_reasoning")
+  const supportsToolUse = optionalBoolean(value, "supports_tool_use")
+  const supportsImageIn = optionalBoolean(value, "supports_image_in")
+  const supportsVideoIn = optionalBoolean(value, "supports_video_in")
+  const supportsThinkingType = parseThinkingType(value.supports_thinking_type)
+  const thinkEfforts = parseThinkEfforts(value.think_efforts)
+  return {
+    id,
+    ...(displayName ? { display_name: displayName } : {}),
+    ...(typeof contextLength === "number" && Number.isFinite(contextLength) ? { context_length: contextLength } : {}),
+    ...(protocol ? { protocol } : {}),
+    ...(supportsReasoning !== undefined ? { supports_reasoning: supportsReasoning } : {}),
+    ...(supportsToolUse !== undefined ? { supports_tool_use: supportsToolUse } : {}),
+    ...(supportsImageIn !== undefined ? { supports_image_in: supportsImageIn } : {}),
+    ...(supportsVideoIn !== undefined ? { supports_video_in: supportsVideoIn } : {}),
+    ...(supportsThinkingType ? { supports_thinking_type: supportsThinkingType } : {}),
+    ...(thinkEfforts ? { think_efforts: thinkEfforts } : {}),
+  }
 }
 
 /**
@@ -210,12 +292,15 @@ export async function listModels(accessToken: string): Promise<KimiModelInfo[]> 
     err.status = res.status
     throw err
   }
-  let json: any
+  let json: unknown
   try {
     json = JSON.parse(text)
   } catch {
     throw new Error(`kimi list-models: non-JSON response: ${text.slice(0, 200)}`)
   }
-  const data = Array.isArray(json?.data) ? json.data : []
-  return data.filter((m: any) => typeof m?.id === "string") as KimiModelInfo[]
+  if (!isRecord(json) || !Array.isArray(json.data)) return []
+  return json.data.flatMap((model) => {
+    const parsed = parseModelInfo(model)
+    return parsed ? [parsed] : []
+  })
 }

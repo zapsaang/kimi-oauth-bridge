@@ -1,3 +1,5 @@
+/// <reference path="./bun-test.d.ts" />
+
 import { test, expect, afterEach } from "bun:test"
 import {
   OAUTH_CLIENT_ID,
@@ -5,8 +7,8 @@ import {
   OAUTH_DEVICE_GRANT,
   OAUTH_REFRESH_GRANT,
   OAUTH_TOKEN_URL,
-} from "../src/constants.ts"
-import { pollDeviceToken, refreshToken, startDeviceAuth } from "../src/oauth.ts"
+} from "../src/core/constants.ts"
+import { listModels, pollDeviceToken, refreshToken, startDeviceAuth } from "../src/core/oauth.ts"
 import { installFetchMock, parseForm } from "./_util/fetchMock.ts"
 
 // oauth.ts calls kimiHeaders() on every request, which reads/writes
@@ -126,4 +128,106 @@ test("pollDeviceToken rethrows unknown errors without looping", async () => {
   ).rejects.toThrow(/access_denied/)
   // Exactly one call; not retried.
   expect(mock!.calls).toHaveLength(1)
+})
+
+test("listModels validates rich Kimi Code capability metadata without retaining malformed fields", async () => {
+  mock = installFetchMock(() => ({
+    body: {
+      data: [
+        {
+          id: "k3",
+          display_name: "Kimi K3",
+          context_length: 262144,
+          protocol: "chat_completions",
+          supports_reasoning: true,
+          supports_tool_use: true,
+          supports_image_in: true,
+          supports_video_in: false,
+          supports_thinking_type: "both",
+          think_efforts: {
+            support: true,
+            valid_efforts: ["low", "high", "max"],
+            default_effort: "high",
+          },
+        },
+        {
+          id: "minimal",
+          context_length: "not-a-number",
+          supports_reasoning: "not-a-boolean",
+          supports_thinking_type: "sometimes",
+          think_efforts: { support: "not-a-boolean", valid_efforts: ["low", 1] },
+        },
+        { id: 42, display_name: "discarded" },
+      ],
+    },
+  }))
+
+  const models = await listModels("access-token")
+
+  expect(models).toEqual([
+    {
+      id: "k3",
+      display_name: "Kimi K3",
+      context_length: 262144,
+      protocol: "chat_completions",
+      supports_reasoning: true,
+      supports_tool_use: true,
+      supports_image_in: true,
+      supports_video_in: false,
+      supports_thinking_type: "both",
+      think_efforts: {
+        support: true,
+        valid_efforts: ["low", "high", "max"],
+        default_effort: "high",
+      },
+    },
+    { id: "minimal" },
+  ])
+  expect(mock.calls).toHaveLength(1)
+  expect(mock.calls[0]!.method).toBe("GET")
+  expect(mock.calls[0]!.headers.authorization).toBe("Bearer access-token")
+  expect(mock.calls[0]!.hasSignal).toBe(true)
+})
+
+// S5 — protocol field is parsed but NEVER mapped to a guessed transport
+// (Oracle #6: anthropic/openai transport mapping is unverified). The plugin
+// keeps @ai-sdk/openai-compatible / chat-completions as the verified current
+// behavior regardless of the discovered protocol string. An unknown or absent
+// protocol must parse without throwing and without inventing a transport.
+test("listModels parses unknown/absent protocol verbatim without throwing or mapping a transport", async () => {
+  mock = installFetchMock(() => ({
+    body: {
+      data: [
+        { id: "unknown-proto", protocol: "anthropic", context_length: 8192 },
+        { id: "no-proto", context_length: 4096 },
+      ],
+    },
+  }))
+  const models = await listModels("access-token")
+  expect(models).toHaveLength(2)
+  expect(models[0]!.id).toBe("unknown-proto")
+  expect(models[0]!.protocol).toBe("anthropic")
+  expect(models[1]!.id).toBe("no-proto")
+  expect(models[1]!.protocol).toBeUndefined()
+})
+
+// S3 — parse-site rejection: proto-polluting / control-char model ids never
+// reach the catalog. isSafeModelId is applied inside parseModelInfo so a
+// hostile or malformed `/models` payload cannot inject a poisoned key.
+test("listModels drops proto-polluting and control-char model ids at parse", async () => {
+  mock = installFetchMock(() => ({
+    body: {
+      data: [
+        { id: "__proto__", context_length: 999 },
+        { id: "constructor", context_length: 999 },
+        { id: "prototype", context_length: 999 },
+        { id: "bad\tid", context_length: 999 },
+        { id: "", context_length: 999 },
+        { id: 42, context_length: 999 },
+        { id: "safe-id", context_length: 4096 },
+      ],
+    },
+  }))
+  const models = await listModels("access-token")
+  expect(models.map((m) => m.id)).toEqual(["safe-id"])
 })

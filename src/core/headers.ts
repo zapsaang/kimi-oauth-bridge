@@ -3,7 +3,17 @@ import fs from "node:fs"
 import path from "node:path"
 import crypto from "node:crypto"
 import childProcess from "node:child_process"
-import { KIMI_CLI_VERSION, USER_AGENT } from "./constants.ts"
+import {
+  HEADER_MSH_DEVICE_ID,
+  HEADER_MSH_DEVICE_MODEL,
+  HEADER_MSH_DEVICE_NAME,
+  HEADER_MSH_OS_VERSION,
+  HEADER_MSH_PLATFORM,
+  HEADER_USER_AGENT,
+  HEADER_MSH_VERSION,
+  KIMI_CLI_VERSION,
+  USER_AGENT,
+} from "./constants.ts"
 
 // kimi-cli persists its device id at `~/.kimi/device_id` as a plain UUIDv4
 // hex string (no dashes). We intentionally share the same path so users who
@@ -64,7 +74,15 @@ export function kimiDeviceModel(input?: {
 }) {
   const system = input?.system ?? os.type()
   const release = input?.release ?? os.release()
-  const machine = input?.machine ?? os.machine?.() ?? os.arch()
+  const rawMachine = input?.machine ?? os.machine?.() ?? os.arch()
+
+  // P1: kimi-cli uses Python's platform.machine(). On Windows that returns
+  // "AMD64" for x86_64, NOT "x86_64" (which Node's os.machine() yields). The
+  // official client sends "AMD64" on win32; matching it avoids a device-model
+  // fingerprint mismatch that can trigger throttling/403. Linux/Darwin keep
+  // os.machine() unchanged (arm64, x86_64, ...).
+  const machine =
+    system === "Windows_NT" && rawMachine === "x86_64" ? "AMD64" : rawMachine
 
   if (system === "Darwin") {
     const version = input?.macVersion ?? macProductVersion() ?? release
@@ -105,12 +123,12 @@ export function kimiDeviceModel(input?: {
  */
 export function kimiHeaders(): Record<string, string> {
   return {
-    "User-Agent": USER_AGENT,
-    "X-Msh-Platform": "kimi_cli",
-    "X-Msh-Version": KIMI_CLI_VERSION,
-    "X-Msh-Device-Name": asciiHeaderValue(os.hostname() || "unknown"),
-    "X-Msh-Device-Model": asciiHeaderValue(kimiDeviceModel()),
-    "X-Msh-Device-Id": getDeviceId(),
-    "X-Msh-Os-Version": asciiHeaderValue(os.version?.() || `${os.type()} ${os.release()}`),
+    [HEADER_USER_AGENT]: USER_AGENT,
+    [HEADER_MSH_PLATFORM]: "kimi_cli",
+    [HEADER_MSH_VERSION]: KIMI_CLI_VERSION,
+    [HEADER_MSH_DEVICE_NAME]: asciiHeaderValue(os.hostname() || "unknown"),
+    [HEADER_MSH_DEVICE_MODEL]: asciiHeaderValue(kimiDeviceModel()),
+    [HEADER_MSH_DEVICE_ID]: getDeviceId(),
+    [HEADER_MSH_OS_VERSION]: asciiHeaderValue(os.version?.() || `${os.type()} ${os.release()}`),
   }
 }

@@ -1,4 +1,4 @@
-import { API_BASE_URL, PROVIDER_ID } from "./constants.ts"
+import { API_BASE_URL } from "./constants.ts"
 import { kimiHeaders } from "./headers.ts"
 
 export type UsageRow = {
@@ -10,7 +10,12 @@ export type UsageRow = {
 
 const REQUEST_TIMEOUT_MS = 120_000
 
-export async function fetchUsage(accessToken: string) {
+/**
+ * Fetches Kimi subscription usage. The host supplies a re-login hint string
+ * for the 401 message (e.g. opencode: "Run `opencode auth login <id>` again.")
+ * so this module never hard-codes a host login command.
+ */
+export async function fetchUsage(accessToken: string, hostReloginHint: string) {
   const res = await fetch(`${API_BASE_URL}/usages`, {
     headers: {
       ...kimiHeaders(),
@@ -23,7 +28,7 @@ export async function fetchUsage(accessToken: string) {
   if (!res.ok) {
     const message =
       res.status === 401
-        ? `Authorization failed. Run \`opencode auth login ${PROVIDER_ID}\` again.`
+        ? `Authorization failed. ${hostReloginHint}`
         : `Kimi usage request failed (${res.status}): ${text.slice(0, 200)}`
     const error = new Error(message) as Error & { status?: number }
     error.status = res.status

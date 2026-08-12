@@ -1,30 +1,17 @@
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { PROVIDER_ID } from "./constants.ts"
+import { PROVIDER_ID } from "../../core/constants.ts"
+import { isOAuthAuth, type OAuthAuth } from "../../core/refresh.ts"
 
-export type OAuthAuth = {
-  type: "oauth"
-  refresh: string
-  access: string
-  expires: number
-}
+// Re-export the credential shape + guard for adapter callers that import
+// auth-store concerns from a single module.
+export { isOAuthAuth, type OAuthAuth }
 
 export type AuthStoreEntry = {
   file: string
   parsed: Record<string, unknown>
   entry: OAuthAuth
-}
-
-export function isOAuthAuth(value: unknown): value is OAuthAuth {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false
-  const auth = value as Partial<OAuthAuth>
-  return (
-    auth.type === "oauth" &&
-    typeof auth.access === "string" &&
-    typeof auth.refresh === "string" &&
-    typeof auth.expires === "number"
-  )
 }
 
 export function authStoreCandidates() {
@@ -56,15 +43,6 @@ export async function resolveAuthStorePath() {
     } catch {}
   }
   return candidates[0]!
-}
-
-export async function readAuthStore() {
-  for (const file of authStoreCandidates()) {
-    try {
-      return { file, parsed: JSON.parse(await fs.readFile(file, "utf8")) as Record<string, unknown> }
-    } catch {}
-  }
-  return { file: authStoreCandidates()[0]!, parsed: {} as Record<string, unknown> }
 }
 
 export async function readAuthStoreEntry(): Promise<AuthStoreEntry | undefined> {
