@@ -4,3 +4,6 @@ dist/
 *.log
 .junie/
 .factory/
+graphify-out/
+.omo/
+.codegraph/
