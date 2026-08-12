@@ -1,0 +1,36 @@
+{
+  "id": "kimi-oauth-bridge",
+  "name": "Kimi Code (OAuth device-code)",
+  "description": "Brings the official Kimi Code OAuth device flow and Kimi-specific coding request fields to OpenClaw, mirroring upstream kimi-cli.",
+  "providers": [
+    "kimi-oauth-bridge"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "kimi-oauth-bridge",
+        "authMethods": [
+          "device-code"
+        ],
+        "envVars": []
+      }
+    ]
+  },
+  "providerAuthChoices": [
+    {
+      "provider": "kimi-oauth-bridge",
+      "method": "device-code",
+      "choiceId": "kimi-oauth-bridge-device-code",
+      "choiceLabel": "Kimi device-code login",
+      "choiceHint": "Pair your Kimi Code account in a browser with a device code",
+      "groupId": "kimi-oauth-bridge",
+      "groupLabel": "Kimi Code (OAuth)",
+      "groupHint": "Official Kimi Code OAuth device flow"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

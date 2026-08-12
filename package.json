@@ -1,15 +1,15 @@
 {
-  "name": "opencode-kimi-full",
+  "name": "kimi-oauth-bridge",
   "version": "1.4.0",
   "description": "OpenCode plugin that brings the official Kimi OAuth device flow and Kimi-specific coding request fields to opencode, matching upstream kimi-cli.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lemon07r/opencode-kimi-full.git"
+    "url": "git+https://github.com/lemon07r/kimi-oauth-bridge.git"
   },
-  "homepage": "https://github.com/lemon07r/opencode-kimi-full#readme",
+  "homepage": "https://github.com/lemon07r/kimi-oauth-bridge#readme",
   "bugs": {
-    "url": "https://github.com/lemon07r/opencode-kimi-full/issues"
+    "url": "https://github.com/lemon07r/kimi-oauth-bridge/issues"
   },
   "publishConfig": {
     "access": "public",
@@ -22,8 +22,22 @@
     "./server": "./src/index.ts",
     "./tui": "./src/tui.tsx"
   },
+  "openclaw": {
+    "extensions": [
+      "./src/adapters/openclaw/index.ts"
+    ],
+    "runtimeExtensions": [
+      "./dist/openclaw.js"
+    ]
+  },
+  "scripts": {
+    "build:openclaw": "bun build src/adapters/openclaw/index.ts --target=node --outfile dist/openclaw.js --external openclaw",
+    "prepack": "bun run build:openclaw"
+  },
   "files": [
+    "dist",
     "src",
+    "openclaw.plugin.json",
     "README.md",
     "AGENTS.md",
     "LICENSE"
@@ -40,7 +54,13 @@
     "prompt-cache-key"
   ],
   "peerDependencies": {
-    "@opencode-ai/plugin": ">=1.4.6"
+    "@opencode-ai/plugin": ">=1.4.6",
+    "openclaw": ">=2026.7.1"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
   },
   "engines": {
     "opencode": ">=1.4.6"
@@ -52,6 +72,7 @@
   "devDependencies": {
     "@opencode-ai/plugin": "^1.4.7",
     "@types/node": "^22.0.0",
+    "openclaw": "2026.7.1-2",
     "typescript": "^5.6.0"
   }
 }
