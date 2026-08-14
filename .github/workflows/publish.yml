@@ -19,6 +19,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
@@ -42,9 +44,49 @@ jobs:
       - run: bun test
       - run: bun run build:openclaw
 
+      - name: Pack tarball
+        id: pack
+        run: |
+          file=$(npm pack --silent)
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+          echo "Packed $file"
+          tar -tzf "$file"
+
       - run: npm publish --access public
         env:
           NPM_CONFIG_PROVENANCE: true
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          tag="$GITHUB_REF_NAME"
+          prev=$(git tag --sort=-creatordate | grep -v "^${tag}$" | head -n1 || true)
+          {
+            echo "## ${tag}"
+            echo
+            if [ -n "$prev" ]; then
+              echo "Changes since \`${prev}\`:"
+              echo
+              git log --no-merges --pretty=format:'- %s (%h)' "${prev}..${tag}"
+              echo
+              echo
+              echo "**Full diff:** https://github.com/${GITHUB_REPOSITORY}/compare/${prev}...${tag}"
+            else
+              echo "Initial release."
+              echo
+              git log --no-merges --pretty=format:'- %s (%h)' "${tag}"
+            fi
+          } > CHANGELOG_RELEASE.md
+          cat CHANGELOG_RELEASE.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        with:
+          name: ${{ github.ref_name }}
+          body_path: CHANGELOG_RELEASE.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: ${{ steps.pack.outputs.file }}
 
       - name: Push version bump back to master
         run: |
