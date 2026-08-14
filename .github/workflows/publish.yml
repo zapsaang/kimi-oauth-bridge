@@ -47,7 +47,9 @@ jobs:
       - name: Pack tarball
         id: pack
         run: |
-          file=$(npm pack --silent)
+          # npm pack runs prepack (bun build) whose stdout pollutes the capture;
+          # the tarball name is always the last line.
+          file=$(npm pack --silent | tail -n 1)
           echo "file=$file" >> "$GITHUB_OUTPUT"
           echo "Packed $file"
           tar -tzf "$file"
