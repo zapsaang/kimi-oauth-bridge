@@ -25,6 +25,7 @@ import {
   PROVIDER_ID,
 } from "../../core/constants.ts"
 import { type KimiModelInfo, listModels } from "../../core/oauth.ts"
+import { kimiHeaders } from "../../core/headers.ts"
 import { isSafeEffortString, isSafeModelId } from "../../core/validation.ts"
 import { supportsThinking } from "../../core/thinking.ts"
 
@@ -164,9 +165,14 @@ export function buildKimiProvider(models: readonly ModelDefinitionConfig[]): Mod
     baseUrl: API_BASE_URL,
     api: KIMI_API,
     // Authorization is owned by the transport (authHeader:true re-adds the
-    // resolved OAuth bearer). wrapStreamFn only sets the 7 X-Msh-* headers.
+    // resolved OAuth bearer) — provider-level headers must never carry it.
+    // kimiHeaders() is the fingerprint fallback for transport paths our
+    // wrapStreamFn wrapper does not cover (e.g. simple completions): the host
+    // merges providerConfig.headers into every runtime model's headers
+    // (openclaw/dist/model-wpoKGSDF.js) and the openai-completions transport
+    // applies them caller-wins, so wrapStreamFn still wins per-request.
     authHeader: true,
-    headers: {},
+    headers: kimiHeaders(),
     models: [...models],
   }
 }

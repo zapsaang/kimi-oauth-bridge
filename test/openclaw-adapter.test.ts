@@ -4,6 +4,7 @@ import { afterEach, expect, mock, test } from "bun:test"
 import fs from "node:fs"
 import {
   API_BASE_URL,
+  KIMI_CLI_VERSION,
   KIMI_DEFAULT_CONTEXT_WINDOW,
   MODEL_ID,
   PROVIDER_ID,
@@ -306,7 +307,7 @@ test("discoverKimiCatalog returns the cold fallback provider when no auth is res
   expect(provider.baseUrl).toBe(API_BASE_URL)
   expect(provider.api).toBe("openai-completions")
   expect(provider.authHeader).toBe(true)
-  expect(provider.headers).toEqual({})
+  expect(provider.headers?.["User-Agent"]).toBe(`KimiCLI/${KIMI_CLI_VERSION}`)
   expect(provider.models).toHaveLength(1)
   const cold = provider.models[0]!
   expect(cold.id).toBe(MODEL_ID)
@@ -345,6 +346,32 @@ test("buildColdKimiModel and buildKimiProvider produce the expected shapes", () 
   const provider = buildKimiProvider([cold])
   expect(provider.authHeader).toBe(true)
   expect(provider.api).toBe("openai-completions")
+})
+
+test("buildKimiProvider sets provider-level Kimi fingerprint headers", () => {
+  // Given: a projected provider for any catalog (cold or discovered)
+  const provider = buildKimiProvider([buildColdKimiModel()])
+
+  // Then: every transport path (including ones not covered by wrapStreamFn)
+  // inherits the 7-header Kimi CLI fingerprint; Authorization stays with the
+  // transport (authHeader: true) and must NOT appear here.
+  const headers = provider.headers
+  expect(headers).toBeDefined()
+  expect(headers?.["User-Agent"]).toBe(`KimiCLI/${KIMI_CLI_VERSION}`)
+  for (const name of [
+    "X-Msh-Platform",
+    "X-Msh-Version",
+    "X-Msh-Device-Name",
+    "X-Msh-Device-Model",
+    "X-Msh-Device-Id",
+    "X-Msh-Os-Version",
+  ]) {
+    const value = headers?.[name]
+    expect(typeof value).toBe("string")
+    if (typeof value === "string") expect(value.length).toBeGreaterThan(0)
+  }
+  expect(headers?.["Authorization"]).toBeUndefined()
+  expect(headers?.["authorization"]).toBeUndefined()
 })
 
 // --- B3: scoped catalog cache + S4 sequence + split-brain + leakage ----------
