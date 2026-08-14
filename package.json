@@ -5,15 +5,15 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AceRothstein71/kimi-oauth-bridge.git"
+    "url": "git+https://github.com/zapsaang/kimi-oauth-bridge.git"
   },
-  "homepage": "https://github.com/AceRothstein71/kimi-oauth-bridge#readme",
+  "homepage": "https://github.com/zapsaang/kimi-oauth-bridge#readme",
   "bugs": {
-    "url": "https://github.com/AceRothstein71/kimi-oauth-bridge/issues"
+    "url": "https://github.com/zapsaang/kimi-oauth-bridge/issues"
   },
   "publishConfig": {
     "access": "public",
-    "provenance": true
+    "provenance": false
   },
   "type": "module",
   "main": "./src/index.ts",
