@@ -105,6 +105,7 @@ These are the invariants that, if broken, silently route requests onto the wrong
 - ❌ Don't introduce a build step for the **OpenCode** entry. The plugin ships as `.ts` and opencode's bun-based loader handles it. (The **OpenClaw** entry is the deliberate exception: `package.json#openclaw.runtimeExtensions` points at `dist/openclaw.js`, built by `prepack`/`build:openclaw` with `openclaw` externalized. OpenCode must keep resolving raw `.ts` from `src/index.ts`.)
 - ❌ Don't add tests that require real Kimi credentials and check them in. If you add offline unit tests, put them under `test/` and mock `fetch`.
 - ❌ Don't add named exports to the OpenCode entry (`src/adapters/opencode/index.ts`, re-exported by root `src/index.ts`) or change the default export away from the `{ id, server }` PluginModule shape. See rule 9.
+- ❌ Don't import across host adapters (`adapters/opencode` ↔ `adapters/openclaw`) or pull the other host's SDK (`openclaw/*` into OpenCode code, `@opencode-ai/*` into OpenClaw code). Shared logic belongs in `src/core/*`; `test/exports.test.ts` guards the boundary.
 
 ### How to verify a change
 
