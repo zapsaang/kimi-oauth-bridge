@@ -27,6 +27,10 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
+      # npm Trusted Publisher (OIDC) requires npm >= 11.5.1; no NODE_AUTH_TOKEN —
+      # npm exchanges the job's OIDC id-token for a publish token automatically.
+      - run: npm install -g npm@latest
+
       - name: Sync version from tag
         run: |
           TAG=${GITHUB_REF_NAME#v}
@@ -40,7 +44,6 @@ jobs:
 
       - run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
 
       - name: Push version bump back to master
