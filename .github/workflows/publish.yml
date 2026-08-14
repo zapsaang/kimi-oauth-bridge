@@ -1,0 +1,54 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Sync version from tag
+        run: |
+          TAG=${GITHUB_REF_NAME#v}
+          npm version "$TAG" --no-git-tag-version --allow-same-version --ignore-scripts
+
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit
+      - run: bunx tsc --noEmit --project tsconfig.tests.json
+      - run: bun test
+      - run: bun run build:openclaw
+
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+
+      - name: Push version bump back to master
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git diff --cached --quiet || (
+            git commit -m "chore(release): ${GITHUB_REF_NAME#v} [skip ci]" &&
+            git push origin HEAD:master
+          )
