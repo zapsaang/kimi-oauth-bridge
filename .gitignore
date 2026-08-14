@@ -1,6 +1,7 @@
 research/
 node_modules/
 dist/
+.direnv/
 *.log
 .junie/
 .factory/
