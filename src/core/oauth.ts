@@ -6,6 +6,7 @@ import {
   OAUTH_REFRESH_GRANT,
   OAUTH_TOKEN_URL,
 } from "./constants.ts"
+import { debugLogOutbound } from "./debug-log.ts"
 import { kimiHeaders } from "./headers.ts"
 import { isSafeEffortString, isSafeModelId, sanitizeEfforts } from "./validation.ts"
 
@@ -36,13 +37,15 @@ function formBody(params: Record<string, string>): string {
 }
 
 async function postForm<T>(url: string, params: Record<string, string>): Promise<T> {
+  const headers = {
+    ...kimiHeaders(),
+    "Content-Type": "application/x-www-form-urlencoded",
+    Accept: "application/json",
+  }
+  debugLogOutbound("oauth", "POST", url, headers)
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      ...kimiHeaders(),
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
+    headers,
     body: formBody(params),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
@@ -109,13 +112,15 @@ export async function refreshToken(refresh: string): Promise<TokenResponse> {
   let lastError: unknown
   for (let attempt = 0; attempt < REFRESH_MAX_RETRIES; attempt++) {
     try {
+      const headers = {
+        ...kimiHeaders(),
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      }
+      debugLogOutbound("oauth.refresh", "POST", OAUTH_TOKEN_URL, headers)
       const res = await fetch(OAUTH_TOKEN_URL, {
         method: "POST",
-        headers: {
-          ...kimiHeaders(),
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/json",
-        },
+        headers,
         body: formBody({
           client_id: OAUTH_CLIENT_ID,
           refresh_token: refresh,
@@ -278,12 +283,15 @@ function parseModelInfo(value: unknown): KimiModelInfo | undefined {
  * (see `refresh_managed_models` in platforms.py). We do the same.
  */
 export async function listModels(accessToken: string): Promise<KimiModelInfo[]> {
-  const res = await fetch(`${API_BASE_URL}/models`, {
-    headers: {
-      ...kimiHeaders(),
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
+  const url = `${API_BASE_URL}/models`
+  const headers = {
+    ...kimiHeaders(),
+    Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json",
+  }
+  debugLogOutbound("models", "GET", url, headers)
+  const res = await fetch(url, {
+    headers,
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
   const text = await res.text()

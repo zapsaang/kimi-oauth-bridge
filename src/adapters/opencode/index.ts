@@ -4,6 +4,7 @@ import {
   MODEL_ID,
   PROVIDER_ID,
 } from "../../core/constants.ts"
+import { debugLogOutbound } from "../../core/debug-log.ts"
 import { kimiHeaders } from "../../core/headers.ts"
 import {
   type KimiModelInfo,
@@ -600,6 +601,12 @@ const plugin: Plugin = async ({ client }) => {
               headers.delete("Authorization")
               for (const [k, v] of Object.entries(kimiHeaders())) headers.set(k, v)
               headers.set("Authorization", `Bearer ${auth.access}`)
+              debugLogOutbound(
+                "opencode.loader",
+                init?.method ?? (input instanceof Request ? input.method : "GET"),
+                input instanceof Request ? input.url : input.toString(),
+                headers,
+              )
 
               let newInit = init
               const originalBody =

@@ -178,6 +178,14 @@ If a generated config block is stale after an entitlement change, replace it wit
 
 </details>
 
+### Debug logging
+
+Set `KIMI_OAUTH_BRIDGE_DEBUG_LOG=1` when launching opencode to append each Kimi-bound request's timestamp, source, method, URL, and User-Agent to `~/.kimi/kimi-oauth-bridge-debug.log`; Authorization, cookies, and request bodies are never logged. Values `1` and `true` use that default path, while any other non-empty value except `0` or `false` is treated as a custom log path. An unset value, an empty value, `0`, or `false` disables logging without touching a file.
+
+```sh
+KIMI_OAUTH_BRIDGE_DEBUG_LOG=1 opencode serve ...
+```
+
 ### Use
 
 Select `kimi-oauth-bridge/<exact-discovered-id>` in opencode. The id in the request body remains exactly the selected catalog id; the plugin never aliases a dynamic selection to another discovered model.

@@ -34,6 +34,7 @@ Each source file has one job. Do not add new files unless the existing ones genu
 |------|----------------|
 | `src/core/constants.ts` | Pinned strings that must mirror upstream kimi-cli (version, endpoints, client id) + `PROVIDER_ID` shared identity + the 7 `X-Msh-*` / UA header name constants. Host-neutral. |
 | `src/core/headers.ts` | The seven `X-Msh-*` / UA headers + the persistent `~/.kimi/device_id` file. `node:*` only. |
+| `src/core/debug-log.ts` | Env-gated, best-effort JSONL diagnostics for outbound Kimi request URLs and User-Agent values. `node:*` only. |
 | `src/core/oauth.ts` | Device-code start, device-code poll, refresh-token exchange, `GET /coding/v1/models` discovery + `KimiModelInfo` parse. |
 | `src/core/validation.ts` | `isSafeModelId` / `isSafeEffortString` / `sanitizeEfforts` — S3 proto-pollution / control-char guards applied at every keying site. |
 | `src/core/thinking.ts` | Host-neutral thinking policy: `thinkingConfig` derives variants/defaults from a model's metadata. |

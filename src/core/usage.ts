@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "./constants.ts"
+import { debugLogOutbound } from "./debug-log.ts"
 import { kimiHeaders } from "./headers.ts"
 
 export type UsageRow = {
@@ -16,12 +17,15 @@ const REQUEST_TIMEOUT_MS = 120_000
  * so this module never hard-codes a host login command.
  */
 export async function fetchUsage(accessToken: string, hostReloginHint: string) {
-  const res = await fetch(`${API_BASE_URL}/usages`, {
-    headers: {
-      ...kimiHeaders(),
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
+  const url = `${API_BASE_URL}/usages`
+  const headers = {
+    ...kimiHeaders(),
+    Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json",
+  }
+  debugLogOutbound("usage", "GET", url, headers)
+  const res = await fetch(url, {
+    headers,
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
   const text = await res.text()

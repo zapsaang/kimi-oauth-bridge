@@ -23,6 +23,7 @@ import type { OAuthCredential } from "openclaw/plugin-sdk/provider-auth"
 import type { ModelDefinitionConfig } from "openclaw/plugin-sdk/config-types"
 
 import { API_BASE_URL, MODEL_ID, PROVIDER_ID } from "../../core/constants.ts"
+import { debugLogOutbound } from "../../core/debug-log.ts"
 import { kimiHeaders } from "../../core/headers.ts"
 import { refreshToken } from "../../core/oauth.ts"
 import type { KimiModelInfo } from "../../core/oauth.ts"
@@ -138,6 +139,8 @@ export function kimiWrapStreamFn(ctx: ProviderWrapStreamFnContext): KimiStreamFn
       }
     }
     for (const [name, value] of Object.entries(fingerprint)) headers[name] = value
+    // The actual wire fetch is host-owned; this records what this wrapper injected.
+    debugLogOutbound("openclaw.wrapStreamFn", "POST", model.baseUrl, headers)
 
     const info = getDiscoveredKimiModel(model.id, scopeRef)
     const extra = resolveKimiOpenClawExtraParams({
